@@ -36,37 +36,27 @@
   </div>
 
   <script>
-    // 1. Extract Course ID from URL parameters or parent document referrer
+    // Extract parameters directly from URL or fallback to parent document
     function detectCourseId() {
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.has('course_id') && urlParams.get('course_id') !== '$Canvas.course.id') {
         return urlParams.get('course_id');
       }
-
       if (document.referrer) {
         const matches = document.referrer.match(/courses\/(\d+)/);
         if (matches && matches[1]) return matches[1];
       }
-
       return prompt("Please enter your Course ID:");
     }
 
-    // 2. Extract Student ID from window environment or prompt if in sandbox test view
     function detectStudentId() {
-      try {
-        if (window.parent && window.parent.ENV && window.parent.ENV.current_user_id) {
-          return window.parent.ENV.current_user_id;
-        }
-      } catch (e) {}
-
-      if (window.ENV && window.ENV.current_user_id) {
-        return window.ENV.current_user_id;
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('user_id') && urlParams.get('user_id') !== '$Canvas.user.id') {
+        return urlParams.get('user_id');
       }
-
       return prompt("Please enter your Student User ID:");
     }
 
-    // 3. Extract Canvas Domain automatically from parent referrer
     function detectDomain() {
       if (document.referrer) {
         try {
