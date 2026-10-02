@@ -55,7 +55,7 @@
       if (userParam && userParam !== '$Canvas.user.id' && !isNaN(userParam)) {
         return userParam;
       }
-      return null; // Sent as null so backend resolves automatically
+      return null; // Triggers automatic resolution on backend
     }
 
     function detectDomain() {
@@ -67,7 +67,7 @@
           }
         } catch (e) {}
       }
-      return "sahs.instructure.com"; // Hardcoded default domain
+      return "sahs.instructure.com";
     }
 
     async function submitSchedule() {
