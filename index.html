@@ -36,10 +36,45 @@
   </div>
 
   <script>
-    function getCourseId() {
-      const pathSegments = window.location.pathname.split('/');
-      const idx = pathSegments.indexOf('courses');
-      return idx !== -1 ? pathSegments[idx + 1] : null;
+    // 1. Extract Course ID from URL parameters or parent document referrer
+    function detectCourseId() {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('course_id') && urlParams.get('course_id') !== '$Canvas.course.id') {
+        return urlParams.get('course_id');
+      }
+
+      if (document.referrer) {
+        const matches = document.referrer.match(/courses\/(\d+)/);
+        if (matches && matches[1]) return matches[1];
+      }
+
+      return prompt("Please enter your Course ID:");
+    }
+
+    // 2. Extract Student ID from window environment or prompt if in sandbox test view
+    function detectStudentId() {
+      try {
+        if (window.parent && window.parent.ENV && window.parent.ENV.current_user_id) {
+          return window.parent.ENV.current_user_id;
+        }
+      } catch (e) {}
+
+      if (window.ENV && window.ENV.current_user_id) {
+        return window.ENV.current_user_id;
+      }
+
+      return prompt("Please enter your Student User ID:");
+    }
+
+    // 3. Extract Canvas Domain automatically from parent referrer
+    function detectDomain() {
+      if (document.referrer) {
+        try {
+          const referrerUrl = new URL(document.referrer);
+          return referrerUrl.hostname;
+        } catch (e) {}
+      }
+      return prompt("Please enter your Canvas Domain (e.g. school.instructure.com):");
     }
 
     async function submitSchedule() {
@@ -52,16 +87,19 @@
         return;
       }
 
-      // Automatically extract host, course ID, and user ID from the Canvas session
-      const domain = window.location.hostname;
-      const courseId = getCourseId() || prompt("Please enter Course ID:");
-      const studentId = (window.ENV && window.ENV.current_user_id) ? window.ENV.current_user_id : prompt("Please enter Student ID:");
+      const domain = detectDomain();
+      const courseId = detectCourseId();
+      const studentId = detectStudentId();
+
+      if (!domain || !courseId || !studentId) {
+        alert("Required course information could not be gathered. Please try refreshing the page.");
+        return;
+      }
 
       statusDiv.style.color = '#2d3b45';
       statusDiv.innerText = "Syncing schedule to Canvas...";
 
       try {
-        // Pre-configured with your Vercel Proxy URL
         const VERCEL_URL = 'https://canvas-pacing-tool.vercel.app/api/sync';
 
         const response = await fetch(VERCEL_URL, {
