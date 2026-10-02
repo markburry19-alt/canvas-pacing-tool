@@ -1,5 +1,5 @@
 export default async function handler(req, res) {
-  // CORS Headers allowing requests from GitHub Pages & Canvas
+  // Global CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -15,13 +15,13 @@ export default async function handler(req, res) {
   let { domain, courseId, studentId, startDate, finishDate, moduleWeights } = req.body;
   const CANVAS_API_TOKEN = process.env.CANVAS_API_TOKEN;
 
-  // Fallback domain if none provided
+  // Domain fallback hardcoded for SAHS
   if (!domain) {
     domain = 'sahs.instructure.com';
   }
 
   if (!CANVAS_API_TOKEN) {
-    return res.status(500).json({ error: 'Server configuration error: CANVAS_API_TOKEN is missing.' });
+    return res.status(500).json({ error: 'Server error: CANVAS_API_TOKEN is missing.' });
   }
 
   if (!courseId || !startDate || !finishDate) {
@@ -29,7 +29,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Auto-detect student ID via API if missing
+    // Server-side auto-resolution of Student ID via Canvas API
     if (!studentId || studentId === '$Canvas.user.id' || isNaN(studentId)) {
       const selfRes = await fetch(`https://${domain}/api/v1/users/self`, {
         headers: { 'Authorization': `Bearer ${CANVAS_API_TOKEN}` }
@@ -39,7 +39,6 @@ export default async function handler(req, res) {
         const selfData = await selfRes.json();
         studentId = selfData.id;
       } else {
-        // Fallback: Query course enrollments for active student record
         const enrollRes = await fetch(`https://${domain}/api/v1/courses/${courseId}/enrollments?type[]=StudentEnrollment`, {
           headers: { 'Authorization': `Bearer ${CANVAS_API_TOKEN}` }
         });
@@ -57,7 +56,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // Retrieve assignment list
+    // Retrieve course assignments
     const assignmentsRes = await fetch(`https://${domain}/api/v1/courses/${courseId}/assignments?per_page=100`, {
       headers: { 'Authorization': `Bearer ${CANVAS_API_TOKEN}` }
     });
@@ -73,7 +72,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, message: 'No assignments found to schedule.' });
     }
 
-    // Calculate dates based on module weighting
+    // Weighted Pacing Calculation
     let totalWeight = 0;
     const weightedAssignments = assignments.map((assignment, idx) => {
       let weight = 1.0;
@@ -102,8 +101,8 @@ export default async function handler(req, res) {
       const targetDueDate = new Date(targetTimeMs);
       targetDueDate.setHours(23, 59, 59, 999);
 
-      // Create or update due date overrides per student
-      const overrideRes = await fetch(`https://${domain}/api/v1/courses/${courseId}/assignments/${assignment.id}/overrides`, {
+      // Create or update due date override per student
+      await fetch(`https://${domain}/api/v1/courses/${courseId}/assignments/${assignment.id}/overrides`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${CANVAS_API_TOKEN}`,
@@ -117,10 +116,6 @@ export default async function handler(req, res) {
           }
         })
       });
-
-      if (!overrideRes.ok) {
-        console.warn(`Override update warning for assignment ${assignment.id}`);
-      }
     }
 
     return res.status(200).json({ success: true, message: 'Canvas calendar synchronized successfully!' });
