@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Set Course Schedule</title>
+  <title>Personal Course Schedule</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; background: #fafafa; color: #2d3b45; }
     .card { background: #ffffff; border: 1px solid #c7cdd1; border-radius: 6px; padding: 24px; max-width: 500px; margin: 0 auto; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
@@ -19,7 +19,7 @@
 
   <div class="card">
     <h2>Personal Course Schedule</h2>
-    <p>Select your start and finish dates. Your Canvas Calendar and To-Do list will update automatically.</p>
+    <p>Select your start and target finish dates. Your Canvas calendar and task list will update automatically.</p>
     
     <div class="form-group">
       <label for="startDate">Course Start Date</label>
@@ -27,7 +27,7 @@
     </div>
     
     <div class="form-group">
-      <label for="finishDate">Course Target Finish Date</label>
+      <label for="finishDate">Target Finish Date</label>
       <input type="date" id="finishDate">
     </div>
     
@@ -55,16 +55,19 @@
       if (userParam && userParam !== '$Canvas.user.id' && !isNaN(userParam)) {
         return userParam;
       }
-      return null; // Sent as null; Vercel auto-detects via API
+      return null; // Sent as null so backend resolves automatically
     }
 
     function detectDomain() {
       if (document.referrer) {
         try {
-          return new URL(document.referrer).hostname;
+          const url = new URL(document.referrer);
+          if (url.hostname && url.hostname.includes('instructure')) {
+            return url.hostname;
+          }
         } catch (e) {}
       }
-      return window.location.hostname;
+      return "sahs.instructure.com"; // Hardcoded default domain
     }
 
     async function submitSchedule() {
@@ -73,7 +76,7 @@
       const statusDiv = document.getElementById('status');
 
       if (!startDate || !finishDate) {
-        alert("Please pick both a start and finish date.");
+        alert("Please select both a start date and a target finish date.");
         return;
       }
 
@@ -81,8 +84,14 @@
       const courseId = detectCourseId();
       const studentId = detectStudentId();
 
+      if (!courseId) {
+        statusDiv.style.color = 'red';
+        statusDiv.innerText = "Error: Could not determine Course ID from page context.";
+        return;
+      }
+
       statusDiv.style.color = '#2d3b45';
-      statusDiv.innerText = "Syncing schedule to Canvas...";
+      statusDiv.innerText = "Syncing schedule with Canvas...";
 
       try {
         const VERCEL_URL = 'https://canvas-pacing-tool.vercel.app/api/sync';
@@ -100,11 +109,11 @@
           statusDiv.innerText = "Success! Your Canvas Calendar has been updated.";
         } else {
           statusDiv.style.color = 'red';
-          statusDiv.innerText = "Error: " + (result.error || "Failed to update schedule.");
+          statusDiv.innerText = "Error: " + (result.error || "Failed to sync schedule.");
         }
       } catch (err) {
         statusDiv.style.color = 'red';
-        statusDiv.innerText = "Connection error. Please try again.";
+        statusDiv.innerText = "Connection error. Please verify network access and try again.";
       }
     }
   </script>
