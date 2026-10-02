@@ -36,27 +36,45 @@
   </div>
 
   <script>
-    // Extract parameters directly from URL or fallback to parent document
+    // 1. Detect Course ID from URL parameters or parent document referrer
     function detectCourseId() {
       const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.has('course_id') && urlParams.get('course_id') !== '$Canvas.course.id') {
-        return urlParams.get('course_id');
+      const courseParam = urlParams.get('course_id');
+
+      if (courseParam && courseParam !== '$Canvas.course.id' && !isNaN(courseParam)) {
+        return courseParam;
       }
+
       if (document.referrer) {
         const matches = document.referrer.match(/courses\/(\d+)/);
         if (matches && matches[1]) return matches[1];
       }
+
       return prompt("Please enter your Course ID:");
     }
 
+    // 2. Detect Student User ID with cross-domain fallbacks
     function detectStudentId() {
       const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.has('user_id') && urlParams.get('user_id') !== '$Canvas.user.id') {
-        return urlParams.get('user_id');
+      const userParam = urlParams.get('user_id');
+
+      // Check if passed cleanly via URL
+      if (userParam && userParam !== '$Canvas.user.id' && !isNaN(userParam)) {
+        return userParam;
       }
+
+      // Check parent window environment (works if on same domain or frame-allowed)
+      try {
+        if (window.parent && window.parent.ENV && window.parent.ENV.current_user_id) {
+          return window.parent.ENV.current_user_id;
+        }
+      } catch (e) {}
+
+      // Fallback prompt only if detection fails completely
       return prompt("Please enter your Student User ID:");
     }
 
+    // 3. Detect Canvas Domain automatically from parent referrer
     function detectDomain() {
       if (document.referrer) {
         try {
@@ -82,7 +100,7 @@
       const studentId = detectStudentId();
 
       if (!domain || !courseId || !studentId) {
-        alert("Required course information could not be gathered. Please try refreshing the page.");
+        alert("Required course information could not be gathered. Please refresh the page.");
         return;
       }
 
