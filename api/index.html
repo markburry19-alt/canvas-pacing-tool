@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Set Course Schedule</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; background: #fafafa; color: #2d3b45; }
+    .card { background: #ffffff; border: 1px solid #c7cdd1; border-radius: 6px; padding: 24px; max-width: 500px; margin: 0 auto; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    h2 { margin-top: 0; color: #008ee2; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-weight: bold; margin-bottom: 6px; }
+    input[type="date"] { width: 100%; padding: 10px; border: 1px solid #c7cdd1; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
+    button { background-color: #008ee2; color: white; border: none; padding: 12px 20px; border-radius: 4px; font-weight: bold; width: 100%; cursor: pointer; font-size: 16px; }
+    button:hover { background-color: #006bb3; }
+    #status { margin-top: 16px; font-weight: bold; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h2>Personal Course Schedule</h2>
+    <p>Select your start and finish dates. Your Canvas Calendar and To-Do list will update automatically.</p>
+    
+    <div class="form-group">
+      <label for="startDate">Course Start Date</label>
+      <input type="date" id="startDate">
+    </div>
+    
+    <div class="form-group">
+      <label for="finishDate">Course Target Finish Date</label>
+      <input type="date" id="finishDate">
+    </div>
+    
+    <button onclick="submitSchedule()">Sync My Canvas Calendar</button>
+    <div id="status"></div>
+  </div>
+
+  <script>
+    function getCourseId() {
+      const pathSegments = window.location.pathname.split('/');
+      const idx = pathSegments.indexOf('courses');
+      return idx !== -1 ? pathSegments[idx + 1] : null;
+    }
+
+    async function submitSchedule() {
+      const startDate = document.getElementById('startDate').value;
+      const finishDate = document.getElementById('finishDate').value;
+      const statusDiv = document.getElementById('status');
+
+      if (!startDate || !finishDate) {
+        alert("Please pick both a start and finish date.");
+        return;
+      }
+
+      // Automatically extract host, course ID, and user ID from the Canvas session
+      const domain = window.location.hostname;
+      const courseId = getCourseId() || prompt("Please enter Course ID:");
+      const studentId = (window.ENV && window.ENV.current_user_id) ? window.ENV.current_user_id : prompt("Please enter Student ID:");
+
+      statusDiv.style.color = '#2d3b45';
+      statusDiv.innerText = "Syncing schedule to Canvas...";
+
+      try {
+        // Pre-configured with your Vercel Proxy URL
+        const VERCEL_URL = 'https://canvas-pacing-tool.vercel.app/api/sync';
+
+        const response = await fetch(VERCEL_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ domain, courseId, studentId, startDate, finishDate })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          statusDiv.style.color = 'green';
+          statusDiv.innerText = "Success! Your Canvas Calendar has been updated.";
+        } else {
+          statusDiv.style.color = 'red';
+          statusDiv.innerText = "Error: " + (result.error || "Failed to update schedule.");
+        }
+      } catch (err) {
+        statusDiv.style.color = 'red';
+        statusDiv.innerText = "Connection error. Please try again.";
+      }
+    }
+  </script>
+</body>
+</html>
